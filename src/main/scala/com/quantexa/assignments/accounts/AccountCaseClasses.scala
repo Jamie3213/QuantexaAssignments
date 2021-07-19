@@ -1,7 +1,10 @@
 package com.quantexa.assignments.accounts
 
-object AccountCaseClasses {
+/* -------------------------------------------------------------------------- */
+/*                Define case classes for use in Spark Datasets               */
+/* -------------------------------------------------------------------------- */
 
+object AccountCaseClasses {
   case class CustomerData(
                            customerId: String,
                            forename: String,

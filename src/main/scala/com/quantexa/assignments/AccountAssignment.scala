@@ -1,49 +1,21 @@
 package com.quantexa.assignments
 
+import accounts.AccountUtils._
 import accounts.AccountCaseClasses._
 import org.apache.log4j.{Logger, Level}
-import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
-import org.apache.spark.sql.expressions.Aggregator
-import org.apache.spark.sql.{Encoder, Encoders, SparkSession, TypedColumn}
-import scala.collection.mutable.ListBuffer 
+import org.apache.spark.sql.SparkSession
 import scala.io.Source
 
-/***
- * A common problem we face at Quantexa is having lots of disjointed raw sources of data and having to aggregate and collect
- * relevant pieces of information into hierarchical case classes which we refer to as Documents. This exercise simplifies
- * the realities of this with just two sources of high quality data however reflects the types of transformations we must
- * perform.
- *
- * You have been given customerData and accountData. This has been read into a DataFrame for you and then converted into a
- * Dataset of the given case classes.
- *
- * If you run this App you will see the top 20 lines of the Datasets provided printed to console
- *
- * This allows you to use the Dataset API which includes .map/.groupByKey/.joinWith ect.
- * But a Dataset also includes all of the DataFrame functionality allowing you to use .join ("left-outer","inner" ect)
- *
- * https://spark.apache.org/docs/latest/sql-programming-guide.html
- *
- * The challenge here is to group, aggregate, join and map the customer and account data given into the hierarchical case class
- * customerAccountoutput. We would prefer you to write using the Scala functions instead of spark.sql() if you choose to perform
- * Dataframe transformations. We also prefer the use of the Datasets API.
- *
- * Example Answer Format:
- *
- * val customerAccountOutputDS: Dataset[customerAccountOutput] = ???
- * customerAccountOutputDS.show(1000,truncate = false)
- *
- * +----------+-----------+----------+---------------------------------------------------------------------+--------------+------------+-----------------+
- * |customerId|forename   |surname   |accounts                                                             |numberAccounts|totalBalance|averageBalance   |
- * +----------+-----------+----------+---------------------------------------------------------------------+--------------+------------+-----------------+
- * |IND0001   |Christopher|Black     |[]                                                                   |0             |0           |0.0              |
- * |IND0002   |Madeleine  |Kerr      |[[IND0002,ACC0155,323], [IND0002,ACC0262,60]]                        |2             |383         |191.5            |
- * |IND0003   |Sarah      |Skinner   |[[IND0003,ACC0235,631], [IND0003,ACC0486,400], [IND0003,ACC0540,53]] |3             |1084        |361.3333333333333|
- * ...
- */
+/* -------------------------------------------------------------------------- */
+/*                             Account Assingment                             */
+/* -------------------------------------------------------------------------- */
+
+// Run with 'gradle -PmainClass=com.quantexa.assignments.AccountAssignment run'
+
 object AccountAssignment {
   def main(args: Array[String]): Unit = {
-    // Run Spark on the local machine as a single-node cluster
+    /* ------------------------ Start local Spark cluster ----------------------- */
+
     val spark = SparkSession.builder()
       .master("local[*]")
       .appName("AccountAssignment")
@@ -51,6 +23,8 @@ object AccountAssignment {
 
     // Set logger level to WARN
     Logger.getRootLogger.setLevel(Level.WARN)
+
+    /* ------------------- Get project resources and read CSVs ------------------ */
 
     // Get file paths from files stored in project resources
     val customerCSV = getClass.getResource("/customer_data.csv").getPath
@@ -60,45 +34,61 @@ object AccountAssignment {
     // Importing spark implicits to allow functions such as dataframe.as[T]
     import spark.implicits._
 
-    // Create DataFrames of sources
+    // Customer source data
     val customerDF = spark.read
       .option("header","true")
       .csv(customerCSV)
 
+    // Account source data
     val accountDF = spark.read
       .option("header","true")
       .csv(accountCSV)
 
-    //Create Datasets of sources
+    // Create Datasets from source Dataframes
     val customerDS = customerDF.as[CustomerData]
     val accountDS = accountDF.withColumn("balance", $"balance".cast("long"))
       .as[AccountData]
 
-    // Create a Dataset by joining the customer Dataset with the account Dataset
+    /* -------------------- Transform data and produce output ------------------- */
+
+    // Join the two source Datasets into a single Dataset based on the customerId column of each of the
+    // Datasets and use a new case class to the define the schema of each row.
+    //
+    // Since there may be customers in one source Dataset but not in another, we need handle three
+    // scenarios when pattern matching:
+    //
+    //  - Customer is in customerDS and not in accountDS
+    //  - Customer is in accountDS and not in customerDS
+    //  - Customer is in both customerDS and accountDS
+    //
     val customerAccountDataDS = customerDS
       .joinWith(accountDS, customerDS.col("customerId") === accountDS.col("customerId"), "full_outer")
       .map { 
-        // Customer exists in customerDS but not accountDS
         case(c, null) => CustomerAccountData(c.customerId, c.forename, c.surname, "", 0L)
-        // Customer exists in accountDS but not customerDS
         case(null, a) => CustomerAccountData(a.customerId, "", "", a.accountId, a.balance)
-        // Customer exists in both datasets
         case(c, a) => CustomerAccountData(c.customerId, c.forename, c.surname, a.accountId, a.balance)
       }
 
-    // Number of accounts aggregator
-    val numberOfAccountsAggregator: TypedColumn[CustomerAccountData, Int] =
-      new Aggregator[CustomerAccountData, ListBuffer[String], Int] {
-        override def zero: ListBuffer[String] = ListBuffer[String]()
-        override def reduce(emptyList: ListBuffer[String], accountData: CustomerAccountData): ListBuffer[String] = emptyList += accountData.accountId
-        override def merge(workerA: ListBuffer[String], workerB: ListBuffer[String]): ListBuffer[String] = workerA ++ workerB
-        override def finish(reduction: ListBuffer[String]): Int = reduction.size
-        override def bufferEncoder: Encoder[ListBuffer[String]] = implicitly(ExpressionEncoder[ListBuffer[String]])
-        override def outputEncoder: Encoder[Int] = implicitly(Encoders.scalaInt)
-      }.toColumn
+    // Group by customerId and calculate aggregate values using the custom type-safe Aggregators
+    // defined in com.quantexa.assignments.accounts.AccountAggregators, then map to the output
+    // case class.
+    val customerAccountOutputDS = customerAccountDataDS.groupByKey(row => row.customerId)
+      .agg(
+        distinctForenameAggregator.name("forename"),
+        distinctSurnameAggregator.name("surname"),
+        accountsAggregator.name("accounts"),
+        numberOfAccountsAggregator.name("numberAccounts"),
+        totalBalanceAggregator.name("totalBalance"),
+        averageBalanceAggregator.name("averageBalance")
+      )
+      .map { 
+        case(cusId: String, fn: String, sn: String, acc: Seq[AccountData], 
+             numAcc: Int, totBal: Long, avgBal: Double) =>
+          CustomerAccountOutput(cusId, fn, sn, acc, numAcc, totBal, avgBal)
+      }
+      .orderBy("customerId")
 
-    customerAccountDataDS.groupByKey(row => row.customerId)
-      .agg(numberOfAccountsAggregator.name("numberAccounts"))
-      .show
+    // Look at the resulting Dataset
+    customerAccountOutputDS.show
   }
 }    

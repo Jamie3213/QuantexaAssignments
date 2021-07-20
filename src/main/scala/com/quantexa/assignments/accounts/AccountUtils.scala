@@ -7,7 +7,7 @@ import org.apache.spark.sql.{Encoder, Encoders, TypedColumn}
 import scala.collection.mutable.ListBuffer 
 
 /* -------------------------------------------------------------------------- */
-/*                          Create custom aggregators                         */
+/*                    Account Assignment Utility Functions                    */
 /* -------------------------------------------------------------------------- */
 /*
  * For each of the aggregate columns we want to appear in our final, aggregated Dataset,

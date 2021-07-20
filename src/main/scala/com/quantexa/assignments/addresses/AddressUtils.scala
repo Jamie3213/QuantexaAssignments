@@ -3,6 +3,10 @@ package com.quantexa.assignments.addresses
 import AddressCaseClasses._
 import scala.util.Random
 
+/* -------------------------------------------------------------------------- */
+/*                    Address Assignment Utility Functions                    */
+/* -------------------------------------------------------------------------- */
+
 object AddressUtils {
   /**
    * Returns true if the two customers' date ranges overlap, else false

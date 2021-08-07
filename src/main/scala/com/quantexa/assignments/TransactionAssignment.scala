@@ -28,7 +28,11 @@ object TransactionAssignment {
         /* -------------------- Transform data and produce output ------------------- */
 
         // Question 1
-        val question1ResultValue = getTransactionTotalsByDay(transactions)
-        question1ResultValue.foreach(println)
+        // val question1ResultValue = getTransactionTotalsByDay(transactions)
+        // question1ResultValue.foreach(println)
+
+        // Question 2
+        val question2ResultValue = getAverageTransactionsByAccountAndType(transactions)
+        question2ResultValue.foreach(println)
     }
 }

@@ -13,4 +13,9 @@ object TransactionCaseClasses {
         transactionDay: Int,
         transactionTotal: Double
     )
+
+    case class Question2Result(
+        accountId: String,
+        categoryAvgValueMap: Map[String, Double]
+    )
 }

@@ -27,40 +27,24 @@ object TransactionAssignment {
 
         /* -------------------- Transform data and produce output ------------------- */
 
-        // // Question 1
-        // val question1ResultValue = getTransactionTotalsByDay(transactions)
-        // question1ResultValue.foreach(println)
+        // Question 1
+        val question1ResultValue: Seq[Question1Result] = getTransactionTotalsByDay(transactions)
+        question1ResultValue.foreach(println)
 
         // // Question 2
-        // val question2ResultValue = getAverageTransactionsByAccountAndType(transactions)
-        // question2ResultValue.foreach(println)
+        val question2ResultValue: Seq[Question2Result] = getAverageTransactionsByAccountAndType(transactions)
+        question2ResultValue.foreach(println)
 
         // Question 3
-        def calculateStatisticsForDay(day: Int, window: Int, transactions: List[Transaction]) = {
-            // Make sure the window can be calculated for the day specified, e.g. a 5 day window can only be calculated
-            // if the value of 'day' is at least 6. If the window doesn't make sense, throw an error.
-            if (day - window <= 0) throw new IllegalArgumentException("Value of 'day' must be greater than 'window'")
+        // Get list of days in transaction data
+        val days: List[Int] = transactions.filter(_.transactionDay > 5)
+            .map { _.transactionDay }
+            .distinct
+        
+        val question3ResultValue: Seq[Question3Result] = days.flatMap { day => 
+            calculateStatisticsForDay(transactions, day, 5)
+        }.toSeq
 
-            // Filter to transactions related to the specified window
-            val transWindow: List[Transaction] = transactions.filter(transaction => 
-                transaction.transactionDay >= day - window && transaction.transactionDay < day
-            )
-
-            // Group by account ID
-            val transByAcc: Map[String, List[Transaction]] = transWindow.groupBy(_.accountId)
-
-            // Calculate totals for each of the account categories of interst
-            val accCategories: List[String] = List("AA", "CC", "FF")
- 
-            val aaTotal: Iterable[Map[String, List[Transaction]]] = transByAcc.collect { 
-                // Filter transactions on category
-                case(accountId: String, trans: List[Transaction]) if trans.filter(_.category == "AA").nonEmpty => 
-                    Map(accountId -> trans.filter(_.category == "AA"))
-            }
-
-            aaTotal.toList
-        }
-
-        calculateStatisticsForDay(6, 5, transactions).map { case(m: Map[String, List[Transaction]]) => m.values}
+        question3ResultValue.foreach(println)
     }
 }

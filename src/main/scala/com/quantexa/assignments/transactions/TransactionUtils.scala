@@ -39,7 +39,7 @@ object TransactionUtils {
                 
                 // For each account, create a list of tuples containing the account category and the
                 // average value for that category
-                val accCatAvergaes: Map[String, Double] = accCats.map { cat =>
+                val accCatAverages: Map[String, Double] = accCats.map { cat =>
                     // Filter transactions on category value and calculate average
                     val filteredTrans: List[Transaction] = trans.filter(tran => tran.category == cat)
                     val catAverage: Double = filteredTrans.map { _.transactionAmount }.sum / filteredTrans.length
@@ -48,7 +48,7 @@ object TransactionUtils {
                     (cat, catAverage)
                 }.toMap
 
-                Question2Result(accId, accCatAvergaes)
+                Question2Result(accId, accCatAverages)
             }
             .toSeq
             .sortBy(_.accountId)

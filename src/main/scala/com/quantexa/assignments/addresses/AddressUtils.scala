@@ -27,8 +27,8 @@ object AddressUtils {
    */
   def findOverlappingAddresses(customerAddressData: List[AddressData]): List[List[AddressData]] = {
     customerAddressData.groupBy(_.addressId)
-      .map { group =>
-        group._2
+      .map { case(addressId: String, addressData: List[AddressData]) =>
+        addressData
           .combinations(2)
           .collect { case List(x, y) if overlap(x, y) => (x, y) }
           .flatMap { tuple => Seq(tuple._1, tuple._2) }

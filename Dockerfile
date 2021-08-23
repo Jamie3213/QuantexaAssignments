@@ -11,9 +11,8 @@ ENV LANG="$LC_ALL"
 
 # Install OpenJDK 11 and add environment variables
 RUN apt-get -y install openjdk-11-jdk
-
-RUN JAVA_HOME=$(readlink -f /usr/bin/java | sed "s:bin/java::")
-ENV PATH="$PATH:/usr/lib/jvm/java-11-openjdk-arm64/bin"
+ENV JAVA_HOME="/usr/lib/jvm/java-11-openjdk-amd64"
+ENV PATH="$PATH:/usr/lib/jvm/java-11-openjdk-amd64/bin"
 
 # Install Gradle and configure environment variables
 RUN wget https://services.gradle.org/distributions/gradle-7.1.1-bin.zip && \

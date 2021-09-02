@@ -53,34 +53,34 @@ object AccountUtils {
     
     // Aggregate all of a customer's accounts into a Seq of AccountData
     val accountsAggregator: TypedColumn[CustomerAccountData, Seq[AccountData]] =
-        new Aggregator[CustomerAccountData, ListBuffer[AccountData], Seq[AccountData]] {
-            override def zero: ListBuffer[AccountData] = ListBuffer[AccountData]()
-            override def reduce(emptyList: ListBuffer[AccountData], data: CustomerAccountData): ListBuffer[AccountData] = {
+        new Aggregator[CustomerAccountData, List[AccountData], Seq[AccountData]] {
+            override def zero: List[AccountData] = List[AccountData]()
+            override def reduce(emptyList: List[AccountData], data: CustomerAccountData): List[AccountData] = {
                 val account = AccountData(data.customerId, data.accountId, data.balance)
-                emptyList += account
+                emptyList ++ List(account)
             }
-            override def merge(workerA: ListBuffer[AccountData], workerB: ListBuffer[AccountData]): ListBuffer[AccountData] = workerA ++ workerB
+            override def merge(workerA: List[AccountData], workerB: List[AccountData]): List[AccountData] = workerA ++ workerB
 
             // Need to filter out missing account IDs since these will otherwise produce an incorrect count in customers who were
             // only present in the customerDS
-            override def finish(reduction: ListBuffer[AccountData]): Seq[AccountData] = reduction.filter(_.accountId != "").toSeq
+            override def finish(reduction: List[AccountData]): Seq[AccountData] = reduction.filter(_.accountId != "").toSeq
 
-            override def bufferEncoder: Encoder[ListBuffer[AccountData]] = ExpressionEncoder[ListBuffer[AccountData]]
+            override def bufferEncoder: Encoder[List[AccountData]] = ExpressionEncoder[List[AccountData]]
             override def outputEncoder: Encoder[Seq[AccountData]] = ExpressionEncoder[Seq[AccountData]] 
         }.toColumn
 
     // Count the number of accounts associated with a customerId
     val numberOfAccountsAggregator: TypedColumn[CustomerAccountData, Int] =
-        new Aggregator[CustomerAccountData, ListBuffer[String], Int] {
-            override def zero: ListBuffer[String] = ListBuffer[String]()
-            override def reduce(emptyList: ListBuffer[String], accountData: CustomerAccountData): ListBuffer[String] = emptyList += accountData.accountId
-            override def merge(workerA: ListBuffer[String], workerB: ListBuffer[String]): ListBuffer[String] = workerA ++ workerB
+        new Aggregator[CustomerAccountData, List[String], Int] {
+            override def zero: List[String] = List[String]()
+            override def reduce(emptyList: List[String], accountData: CustomerAccountData): List[String] = emptyList ++ List(accountData.accountId)
+            override def merge(workerA: List[String], workerB: List[String]): List[String] = workerA ++ workerB
 
             // Need to filter out blank string accounts since these were customers who only appeared in the
             // customerDS, otherwise the count of accounts would be incorrect (i.e. non-zero)
-            override def finish(reduction: ListBuffer[String]): Int = reduction.filter(_ != "").size
+            override def finish(reduction: List[String]): Int = reduction.filter(_ != "").size
 
-            override def bufferEncoder: Encoder[ListBuffer[String]] = implicitly(ExpressionEncoder[ListBuffer[String]])
+            override def bufferEncoder: Encoder[List[String]] = implicitly(ExpressionEncoder[List[String]])
             override def outputEncoder: Encoder[Int] = implicitly(Encoders.scalaInt)
         }.toColumn
 
@@ -97,12 +97,12 @@ object AccountUtils {
 
     // Calculate the average balance across all accounts associated with a customerId
     val averageBalanceAggregator: TypedColumn[CustomerAccountData, Double] = 
-        new Aggregator[CustomerAccountData, ListBuffer[Long], Double] {
-            override def zero: ListBuffer[Long] = ListBuffer[Long]()
-            override def reduce(emptyList: ListBuffer[Long], accountData: CustomerAccountData): ListBuffer[Long] = emptyList += accountData.balance
-            override def merge(workerA: ListBuffer[Long], workerB: ListBuffer[Long]): ListBuffer[Long] = workerA ++ workerB
-            override def finish(reduction: ListBuffer[Long]): Double = reduction.sum / reduction.size.toDouble
-            override def bufferEncoder: Encoder[ListBuffer[Long]] = implicitly(ExpressionEncoder[ListBuffer[Long]])
+        new Aggregator[CustomerAccountData, List[Long], Double] {
+            override def zero: List[Long] = List[Long]()
+            override def reduce(emptyList: List[Long], accountData: CustomerAccountData): List[Long] = emptyList ++ List(accountData.balance)
+            override def merge(workerA: List[Long], workerB: List[Long]): List[Long] = workerA ++ workerB
+            override def finish(reduction: List[Long]): Double = reduction.sum / reduction.size.toDouble
+            override def bufferEncoder: Encoder[List[Long]] = implicitly(ExpressionEncoder[List[Long]])
             override def outputEncoder: Encoder[Double] = implicitly(Encoders.scalaDouble)
         }.toColumn
 }

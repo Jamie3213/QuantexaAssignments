@@ -82,19 +82,19 @@ object AccountAssignment {
 
     // Group by customer Id and calculate aggregates
     val customerAccountOuput: List[CustomerAccountOutput] = customerAccountData.groupBy(_.customerId)
-    .map { case (customerId: String, accountData: List[CustomerAccountData]) =>
-      CustomerAccountOutput(
-          customerId,
-          accountData.head.forename,
-          accountData.head.surname,
-          accountMap.getOrElse(customerId, Seq[AccountData]()),
-          accountMap.getOrElse(customerId, Seq[AccountData]()).length,
-          accountData.map { _.balance }.sum,
-          accountData.map { _.balance }.sum / accountData.length.toDouble
-      )
-    }
-    .toList
-    .sortBy(_.customerId)
+      .map { case (customerId: String, accountData: List[CustomerAccountData]) =>
+        CustomerAccountOutput(
+            customerId,
+            accountData.head.forename,
+            accountData.head.surname,
+            accountMap.getOrElse(customerId, Seq[AccountData]()),
+            accountMap.getOrElse(customerId, Seq[AccountData]()).length,
+            accountData.map { _.balance }.sum,
+            accountData.map { _.balance }.sum / accountData.length.toDouble
+        )
+      }
+      .toList
+      .sortBy(_.customerId)
 
     // Convert to Dataset and show top 20 rows
     val customerAccountOuputDS = customerAccountOuput.toDS()

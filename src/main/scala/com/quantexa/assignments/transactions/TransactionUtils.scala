@@ -82,48 +82,52 @@ object TransactionUtils {
     * @param window the size of the window in days
     */
     def calculateStatisticsForDay(transactions: List[Transaction], day: Int, window: Int): Seq[Question3Result] = {
-        // Make sure the window can be calculated for the day specified, e.g. a 5 day window can only be calculated
-        // if the value of 'day' is at least 6 - if the window doesn't make sense, throw an error.
-        if (day - window <= 0) throw new IllegalArgumentException("Value of 'day' must be greater than 'window'")
+        // If the specified day is greater than or equal to the window, then return zeroed dummy values, else
+        // return the legitiate window statistics
+        if (day - window <= 0) {
+            transactions.filter(_.transactionDay <= window)
+                .groupBy(_.accountId)
+                .map { case(accId: String, trans: List[Transaction]) => Question3Result(day, accId, 0, 0, 0, 0, 0) }
+                .toSeq
+        } else {
+            // Filter to transactions related to the specified window
+            val windowTrans: List[Transaction] = transactions.filter(_.transactionDay >= window)
+                .filter { transaction => 
+                    transaction.transactionDay >= day - window && transaction.transactionDay < day
+                }
 
-        // Filter to transactions related to the specified window
-        val windowTrans: List[Transaction] = transactions.filter(transaction => 
-            transaction.transactionDay >= day - window && transaction.transactionDay < day
-        )
+            // Calculate totals for each of the account categories of interst
+            val aaTotals: Map[String, Double] = calculateTotalsForCategoryByAccount(windowTrans, "AA")
+            val ccTotals: Map[String, Double] = calculateTotalsForCategoryByAccount(windowTrans, "CC")
+            val ffTotals: Map[String, Double] = calculateTotalsForCategoryByAccount(windowTrans, "FF")
 
-        // Calculate totals for each of the account categories of interst
-        val aaTotals: Map[String, Double] = calculateTotalsForCategoryByAccount(windowTrans, "AA")
-        val ccTotals: Map[String, Double] = calculateTotalsForCategoryByAccount(windowTrans, "CC")
-        val ffTotals: Map[String, Double] = calculateTotalsForCategoryByAccount(windowTrans, "FF")
+            // Calculate the maximum transaction value for each account
+            val maxTrans: Map[String, Double] = windowTrans.groupBy(_.accountId)
+                .map { case(accId: String, trans: List[Transaction]) =>
+                    val max: Double = trans.map { _.transactionAmount }.max
+                    (accId, max)
+                }
 
-        // Calculate the maximum transaction value for each account
-        val maxTrans: Map[String, Double] = windowTrans.groupBy(_.accountId)
-            .map { case(accId: String, trans: List[Transaction]) =>
-                val max: Double = trans.map { _.transactionAmount }.max
-                (accId, max)
-            }
-
-        // Calculate the average transaction value for each account
-        val avgTrans: Map[String, Double] = windowTrans.groupBy(_.accountId)
-            .map { case(accId: String, trans: List[Transaction]) =>
-                val avg: Double = trans.map { _.transactionAmount }.sum / trans.length
-                (accId, avg)
-            }
-        
-        // Return a List of Question3Result case classes
-        windowTrans.groupBy(_.accountId)
-            .map { case(accId: String, trans: List[Transaction]) =>
-                Question3Result(
-                    day,
-                    accId,
-                    maxTrans.getOrElse(accId, 0),
-                    avgTrans.getOrElse(accId, 0),
-                    aaTotals.getOrElse(accId, 0),
-                    ccTotals.getOrElse(accId, 0),
-                    ffTotals.getOrElse(accId, 0)
-                )
-            }
-            .toSeq
-            .sortBy(_.accountId)
+            // Calculate the average transaction value for each account
+            val avgTrans: Map[String, Double] = windowTrans.groupBy(_.accountId)
+                .map { case(accId: String, trans: List[Transaction]) =>
+                    val avg: Double = trans.map { _.transactionAmount }.sum / trans.length
+                    (accId, avg)
+                }
+            
+            // Return a List of Question3Result case classes
+            windowTrans.groupBy(_.accountId)
+                .map { case(accId: String, trans: List[Transaction]) =>
+                    Question3Result(
+                        day,
+                        accId,
+                        maxTrans.getOrElse(accId, 0),
+                        avgTrans.getOrElse(accId, 0),
+                        aaTotals.getOrElse(accId, 0),
+                        ccTotals.getOrElse(accId, 0),
+                        ffTotals.getOrElse(accId, 0)
+                    )
+                }.toSeq
+        }
     }
 }

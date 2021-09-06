@@ -18,6 +18,18 @@ object AddressUtils {
     if ((x.toDate >= y.fromDate) && (x.fromDate <= y.toDate)) true else false
   }
 
+  def getIntersectingSets(set: Set[AddressData], sets: List[Set[AddressData]]): List[AddressData] = {
+      val filteredSets: List[Set[AddressData]] = sets.filter(_ != set)
+      val intersectingSets: List[AddressData] = filteredSets.collect { 
+        case otherSet if set.intersect(otherSet).nonEmpty => otherSet 
+      }
+      .toList
+      .flatten
+
+      val result: List[AddressData] = intersectingSets ::: set.toList
+      result.distinct
+    }
+
   /**
    * Returns a list whose elements are lists of AddressData instances where the
    * the customers time at the address overlapped

@@ -81,7 +81,8 @@ object AccountAssignment {
       .reduce(_ ++ _)
 
     // Group by customer Id and calculate aggregates
-    val customerAccountOuput: List[CustomerAccountOutput] = customerAccountData.groupBy(_.customerId). map { case (customerId: String, accountData: List[CustomerAccountData]) =>
+    val customerAccountOuput: List[CustomerAccountOutput] = customerAccountData.groupBy(_.customerId)
+    .map { case (customerId: String, accountData: List[CustomerAccountData]) =>
       CustomerAccountOutput(
           customerId,
           accountData.head.forename,

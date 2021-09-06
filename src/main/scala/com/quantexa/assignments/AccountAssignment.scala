@@ -1,6 +1,5 @@
 package com.quantexa.assignments
 
-import accounts.AccountUtils._
 import accounts.AccountCaseClasses._
 import org.apache.log4j.{Logger, Level}
 import org.apache.spark.sql.SparkSession
@@ -69,26 +68,35 @@ object AccountAssignment {
         case(c, a) => CustomerAccountData(c.customerId, c.forename, c.surname, a.accountId, a.balance)
       }
 
-    // Group by customerId and calculate aggregate values using the custom type-safe Aggregators
-    // defined in com.quantexa.assignments.accounts.AccountAggregators, then map to the output
-    // case class.
-    val customerAccountOutputDS = customerAccountDataDS.groupByKey(row => row.customerId)
-      .agg(
-        distinctForenameAggregator.name("forename"),
-        distinctSurnameAggregator.name("surname"),
-        accountsAggregator.name("accounts"),
-        numberOfAccountsAggregator.name("numberAccounts"),
-        totalBalanceAggregator.name("totalBalance"),
-        averageBalanceAggregator.name("averageBalance")
-      )
-      .map { 
-        case(cusId: String, fn: String, sn: String, acc: Seq[AccountData], 
-             numAcc: Int, totBal: Long, avgBal: Double) =>
-          CustomerAccountOutput(cusId, fn, sn, acc, numAcc, totBal, avgBal)
-      }
-      .orderBy("customerId")
+    // Collect all rows to the driver node and convert to a list of case classes
+    val customerAccountData: List[CustomerAccountData] = customerAccountDataDS.collect
+      .toList
 
-    // Look at the resulting Dataset
-    customerAccountOutputDS.show
+    // After collecting rows to the driver node, create a Map showing the accounts associated 
+    // with each customer
+    val accountMap: Map[String, Seq[AccountData]] = accountDS.collect
+      .toList
+      .groupBy(_.customerId)
+      .map { case(customerId: String, accountData: List[AccountData]) => Map(customerId -> accountData.toSeq) }
+      .reduce(_ ++ _)
+
+    // Group by customer Id and calculate aggregates
+    val customerAccountOuput: List[CustomerAccountOutput] = customerAccountData.groupBy(_.customerId). map { case (customerId: String, accountData: List[CustomerAccountData]) =>
+      CustomerAccountOutput(
+          customerId,
+          accountData.head.forename,
+          accountData.head.surname,
+          accountMap.getOrElse(customerId, Seq[AccountData]()),
+          accountMap.getOrElse(customerId, Seq[AccountData]()).length,
+          accountData.map { _.balance }.sum,
+          accountData.map { _.balance }.sum / accountData.length.toDouble
+      )
+    }
+    .toList
+    .sortBy(_.customerId)
+
+    // Convert to Dataset and show top 20 rows
+    val customerAccountOuputDS = customerAccountOuput.toDS()
+    customerAccountOuputDS.show
   }
 }    

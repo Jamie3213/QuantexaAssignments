@@ -37,13 +37,12 @@ object TransactionAssignment {
 
         // Question 3
         // Get list of days in transaction data
-        val days: List[Int] = transactions.filter(_.transactionDay > 5)
-            .map { _.transactionDay }
+        val days: List[Int] = transactions.map { _.transactionDay }
             .distinct
         
         val question3ResultValue: Seq[Question3Result] = days.flatMap { day => 
             calculateStatisticsForDay(transactions, day, 5)
-        }.toSeq
+        }.sortBy(_.transactionDay)
 
         question3ResultValue.foreach(println)
     }

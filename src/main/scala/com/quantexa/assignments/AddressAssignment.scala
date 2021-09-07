@@ -27,29 +27,25 @@ object AddressAssignment {
 
     /* -------------------- Transform data and produce output ------------------- */
 
-    def anyOverlap(customer: AddressData, customerData: List[AddressData]): Boolean = {
-      val overlappingCustomers: List[AddressData] = customerData.collect { 
-        case otherCustomer if overlap(customer, otherCustomer) => otherCustomer 
-      }.toList
-      if (overlappingCustomers.nonEmpty) true else false
-    }
+    // Create a Map showing all overlapping customer groups for each address
+    val overlappingCustomerGroupsByAddress: Map[String, List[List[AddressData]]] = occupancyData.groupBy(_.addressId)
+      .map { case (addressId: String, customerData: List[AddressData]) =>
+        val accumulator: List[List[AddressData]] = List(getNextCustomerGroup(customerData.tail, List(customerData.head)))
+        val customerGroups: List[List[AddressData]] = getAllCustomerGroups(customerData, accumulator)
+        Map(addressId -> customerGroups)
+      }.reduce(_ ++ _)
 
-    def getNextCustomerGroup(customerData: List[AddressData], accumulator: List[AddressData]): List[AddressData] = customerData match {
-      case tail if anyOverlap(tail.head, accumulator) => getNextCustomerGroup(tail.tail, accumulator :+ tail.head)
-      case _ => accumulator
-    }
-
-    def getAllCustomerGroups(customerData: List[AddressData], accumulator: List[AddressData]): List[AddressData] = {
-      val filteredCustomerData: List[AddressData] = customerData diff accumulator
-      filteredCustomerData match {
-        case list if list.nonEmpty => getAllCustomerGroups(list, accumulator ::: getNextCustomerGroup(list.tail, List(list.head)))
-        case _ => accumulator
+    // For each list over customer groups, create an instance of AddressGroupedData classes
+    val finalResult: List[AddressGroupedData] = overlappingCustomerGroupsByAddress.keys
+      .map { addressId => 
+        overlappingCustomerGroupsByAddress(addressId).map { list => createAddressGroupedData(list) }
       }
-    }
-
-    // Initalise starting values
-    val customerData: List[AddressData] = occupancyData.filter(_.addressId == "ADR000")
-    getAllCustomerGroups(customerData.tail, List[AddressData]()).foreach(println)
-    // println(getNextCustomerGroup(customerData.tail, List(customerData.head)))
+      .toList
+      .flatten
+      .sortBy(group => (group.addressId, group.startDate))
+    
+    // Print the result
+    println(s"Number of groups: ${finalResult.length}")
+    finalResult.foreach(println)
   }
 }

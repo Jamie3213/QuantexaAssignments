@@ -1,6 +1,7 @@
 package com.quantexa.assignments.addresses
 
 import AddressCaseClasses._
+import scala.annotation.tailrec
 import scala.util.Random
 
 /* -------------------------------------------------------------------------- */
@@ -18,17 +19,18 @@ object AddressUtils {
     if ((x.toDate >= y.fromDate) && (x.fromDate <= y.toDate)) true else false
   }
 
-  def getIntersectingSets(set: Set[AddressData], sets: List[Set[AddressData]]): List[AddressData] = {
-      val filteredSets: List[Set[AddressData]] = sets.filter(_ != set)
-      val intersectingSets: List[AddressData] = filteredSets.collect { 
-        case otherSet if set.intersect(otherSet).nonEmpty => otherSet 
-      }
+  /**
+  * Returns a list of customers whose time at the address overlap with the specified customer
+  *
+  * @param cusromer an instance of AddressData
+  * @param customerData a list of AddressData case classes for comparison
+  */
+  def getOverlappingCustomers(customer: AddressData, customerData: List[AddressData]): List[AddressData] = {
+    customerData.filter(_ != customer)
+      .filter(_.addressId == customer.addressId)
+      .collect { case otherCustomer if overlap(customer, otherCustomer) => otherCustomer }
       .toList
-      .flatten
-
-      val result: List[AddressData] = intersectingSets ::: set.toList
-      result.distinct
-    }
+  }
 
   /**
    * Returns a list whose elements are lists of AddressData instances where the

@@ -21,51 +21,35 @@ object AddressAssignment {
     val occupancyData: List[AddressData] = addressLines.map { line =>
       val split = line.split(',')
       AddressData(split(0), split(1), split(2).toInt, split(3).toInt)
-    }.toList
+    }
+    .toList
+    .sortBy(_.fromDate)
 
-    // /* -------------------- Transform data and produce output ------------------- */
+    /* -------------------- Transform data and produce output ------------------- */
 
-    // For each customer, create sets showing other customers that customer overlaps with
-    val overlappingCustomersByAddress: Map[String, List[Set[AddressData]]] = occupancyData.groupBy(_.addressId)
-      .map { case (addressId: String, customers: List[AddressData]) =>
-        val overlappingCustomers: List[Set[AddressData]] = customers.map { customer => 
-          val filteredCustomers: List[AddressData] = customers.filter(_ != customer)
-          filteredCustomers.collect { case otherCustomer if overlap(customer, otherCustomer) =>
-            List(customer, otherCustomer)
-          }
-          .flatten
-          .toSet
-        }
-        .distinct
-        .filter(_.nonEmpty)
-
-        Map(addressId -> overlappingCustomers)
-      }.reduce(_ ++ _)
-
-    // Aggregate the sets based on whether or not they intersect any of the other sets for that address
-    val addressIds: List[String] = occupancyData.map { _.addressId }.toList
-      .distinct
-
-    val customerGroupsByAddress: Map[String, List[Set[AddressData]]] = addressIds.map { addressId => 
-      val customerListForAddress: List[Set[AddressData]] = overlappingCustomersByAddress(addressId)
-      val customerGroups: List[Set[AddressData]] = customerListForAddress.map { set => 
-        getIntersectingSets(set, customerListForAddress).toSet
+    def anyOverlap(customer: AddressData, customerData: List[AddressData]): Boolean = {
+      val overlappingCustomers: List[AddressData] = customerData.collect { 
+        case otherCustomer if overlap(customer, otherCustomer) => otherCustomer 
       }.toList
-      Map(addressId -> customerGroups.distinct)
-    }.reduce(_ ++ _)
+      if (overlappingCustomers.nonEmpty) true else false
+    }
 
-    customerGroupsByAddress("ADR000").foreach(println)
+    def getNextCustomerGroup(customerData: List[AddressData], accumulator: List[AddressData]): List[AddressData] = customerData match {
+      case tail if anyOverlap(tail.head, accumulator) => getNextCustomerGroup(tail.tail, accumulator :+ tail.head)
+      case _ => accumulator
+    }
 
-    // // Create a list whose elements are lists of overlapping 'AddressData' instances
-    // val overlappingCustomers: List[List[AddressData]] = findOverlappingAddresses(occupancyData)
+    def getAllCustomerGroups(customerData: List[AddressData], accumulator: List[AddressData]): List[AddressData] = {
+      val filteredCustomerData: List[AddressData] = customerData diff accumulator
+      filteredCustomerData match {
+        case list if list.nonEmpty => getAllCustomerGroups(list, accumulator ::: getNextCustomerGroup(list.tail, List(list.head)))
+        case _ => accumulator
+      }
+    }
 
-    // // Create AddressGroupedData classes from each of the lists of overlapping customers
-    // val finalList: List[AddressGroupedData] = overlappingCustomers.map { list =>
-    //   createAddressGroupedData(list)
-    // }
-
-    // // Print results
-    // println(s"Number of groups: ${finalList.size}")
-    // finalList.foreach(println)
+    // Initalise starting values
+    val customerData: List[AddressData] = occupancyData.filter(_.addressId == "ADR000")
+    getAllCustomerGroups(customerData.tail, List[AddressData]()).foreach(println)
+    // println(getNextCustomerGroup(customerData.tail, List(customerData.head)))
   }
 }

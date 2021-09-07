@@ -21,20 +21,31 @@ object AddressAssignment {
     val occupancyData: List[AddressData] = addressLines.map { line =>
       val split = line.split(',')
       AddressData(split(0), split(1), split(2).toInt, split(3).toInt)
-    }.toList
+    }
+    .toList
+    .sortBy(_.fromDate)
 
     /* -------------------- Transform data and produce output ------------------- */
 
-    // Create a list whose elements are lists of overlapping 'AddressData' instances
-    val overlappingCustomers: List[List[AddressData]] = findOverlappingAddresses(occupancyData)
+    // Create a Map showing all overlapping customer groups for each address
+    val overlappingCustomerGroupsByAddress: Map[String, List[List[AddressData]]] = occupancyData.groupBy(_.addressId)
+      .map { case (addressId: String, customerData: List[AddressData]) =>
+        val accumulator: List[List[AddressData]] = List(getNextCustomerGroup(customerData.tail, List(customerData.head)))
+        val customerGroups: List[List[AddressData]] = getAllCustomerGroups(customerData, accumulator)
+        Map(addressId -> customerGroups)
+      }.reduce(_ ++ _)
 
-    // Create AddressGroupedData classes from each of the lists of overlapping customers
-    val finalList: List[AddressGroupedData] = overlappingCustomers.map { list =>
-      createAddressGroupedData(list)
-    }
-
-    // Print results
-    println(s"Number of groups: ${finalList.size}")
-    finalList.foreach(println)
+    // For each list over customer groups, create an instance of AddressGroupedData classes
+    val finalResult: List[AddressGroupedData] = overlappingCustomerGroupsByAddress.keys
+      .map { addressId => 
+        overlappingCustomerGroupsByAddress(addressId).map { list => createAddressGroupedData(list) }
+      }
+      .toList
+      .flatten
+      .sortBy(group => (group.addressId, group.startDate))
+    
+    // Print the result
+    println(s"Number of groups: ${finalResult.length}")
+    finalResult.foreach(println)
   }
 }
